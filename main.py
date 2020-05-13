@@ -29,78 +29,68 @@ records = [
 ]
 
 
+def check_day_period(initial, end):
+    if((initial.hour < 22 and end.hour < 22) and (initial.hour >= 6 and end.hour >= 6)):
+        return 'normal_rate'
+    if((initial.hour >= 22 and end.hour >= 22) or (initial.hour < 6 and end.hour < 6)):
+        return 'low_rate'
+    else:
+        return 'mixed_rate'
+
+
+def calculate_final_price(initial, end):
+    duration = int(math.floor((end - initial).seconds/60))
+    final_price = (duration*0.09) + 0.36
+    return final_price
+
+
 def calculate_price(initial, end):
 
     initial = datetime.fromtimestamp(int(initial))
     end = datetime.fromtimestamp(int(end))
+    period = check_day_period(initial, end)
 
-    # início e final da chamada em horário de tarifa comum
-    if((initial.hour < 22 and end.hour < 22) and (initial.hour >= 6 and end.hour >= 6)):
-        rawMinutesDuration = (end - initial).seconds/60
-        minutesDuration = math.floor(rawMinutesDuration)
-        finalPrice = (minutesDuration*0.09) + 0.36
-        return finalPrice
-
-    # Início e fim de chamado no horário sem tarifa
-    elif((initial.hour >= 22 and end.hour >= 22) or (initial.hour < 6 and end.hour < 6)):
+    if(period == 'low_rate'):
         return 0.36
 
-    # casos especiais com inicio em horario sem tarifa e fim em horario
-    # com tarifa comum e vice-versa
-    else:
-        # se terminar a chamada as 22:00:xx, verificar se o último pulso será
-        # cobrado
-        if (end.hour == 22 and end.minute == 0):
-            if(end.second >= initial.second):
-                end = datetime(
-                    end.year, end.month, end.day, 22, 00, 59)
-            else:
-                end = datetime(
-                    end.year, end.month, end.day, 22)
+    if(period == 'normal_rate'):
+        final_price = calculate_final_price(initial, end)
+        return final_price
 
-        # caso seja depois das 22:01, cobrar até as 22:00:59
-        elif (end.hour >= 22):
+    if(period == 'mixed_rate'):
+
+        if (end.hour >= 22, end.minute >= 1):
             end = datetime(
                 end.year, end.month, end.day, 22, 00, 59)
 
-        # caso a ligação tenha início antes das 6:00, considerar inicio de
-        # cobraça às 6:00
         if (initial.hour < 6):
             initial = datetime(
                 initial.year, initial.month, initial.day, 6)
 
-        duration = int(math.floor((end - initial).seconds/60))
-        finalPrice = (duration*0.09) + 0.36
-        return finalPrice
+        final_price = calculate_final_price(initial, end)
+        return final_price
 
 
 def classify_by_phone_number(records):
     results = []
 
-    # percorrer todo o array records para registrar as chamadas
     for record in records:
-        i = 0  # variável para verificar se encontrou o source no results
+        i = 0
+        price = calculate_price(record['start'], record['end'])
 
-        # percorrer todo o array de results para verificar se temos o source
         for result in results:
 
-            # caso já tenha o source em results, somará o valor da chamada
-            # ao total
             if result['source'] == record['source']:
                 i = 1
                 previous = result['total']
-                current = calculate_price(record['start'], record['end'])
-                updated = round((previous + current), 2)
+                updated = round((previous + price), 2)
                 result['total'] = updated
                 break
 
-        # c caso não encontre o source em results, irá criar um novo registro e
-        # inserir o valor da ligação
         if i == 0:
-            price = calculate_price(record['start'], record['end'])
-            priceRounded = round(price, 2)
+            price_rounded = round(price, 2)
             results.append(
-                {'source': record['source'], 'total': priceRounded})
+                {'source': record['source'], 'total': price_rounded})
 
-    finalResult = sorted(results, key=lambda i: i['total'], reverse=True)
-    return finalResult
+    final_result = sorted(results, key=lambda i: i['total'], reverse=True)
+    return final_result
