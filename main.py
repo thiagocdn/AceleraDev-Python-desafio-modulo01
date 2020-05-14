@@ -59,7 +59,7 @@ def calculate_price(initial, end):
 
     if(period == 'mixed_rate'):
 
-        if (end.hour >= 22, end.minute >= 1):
+        if (end.hour >= 22 and end.minute >= 1):
             end = datetime(
                 end.year, end.month, end.day, 22, 00, 59)
 
